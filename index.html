@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bouncing dumbbell, live</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #EEF2F6;
+  --surface: #FFFFFF;
+  --ink: #14213D;
+  --muted: #56657D;
+  --line: rgba(20, 33, 61, 0.14);
+  --grid: rgba(20, 33, 61, 0.06);
+  --grid-strong: rgba(20, 33, 61, 0.15);
+  --accent: #2B59C3;
+  --accent-soft: rgba(43, 89, 195, 0.12);
+  --warn: #B4440E;
+  --warn-soft: rgba(180, 68, 14, 0.10);
+  --ok: #2E7D5B;
+  color-scheme: light;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0E1626;
+    --surface: #152036;
+    --ink: #E5EBF4;
+    --muted: #97A6BD;
+    --line: rgba(229, 235, 244, 0.14);
+    --grid: rgba(229, 235, 244, 0.05);
+    --grid-strong: rgba(229, 235, 244, 0.13);
+    --accent: #84A6FF;
+    --accent-soft: rgba(132, 166, 255, 0.14);
+    --warn: #F59A5B;
+    --warn-soft: rgba(245, 154, 91, 0.12);
+    --ok: #6CCB9F;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0E1626;
+  --surface: #152036;
+  --ink: #E5EBF4;
+  --muted: #97A6BD;
+  --line: rgba(229, 235, 244, 0.14);
+  --grid: rgba(229, 235, 244, 0.05);
+  --grid-strong: rgba(229, 235, 244, 0.13);
+  --accent: #84A6FF;
+  --accent-soft: rgba(132, 166, 255, 0.14);
+  --warn: #F59A5B;
+  --warn-soft: rgba(245, 154, 91, 0.12);
+  --ok: #6CCB9F;
+  color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.wrap { max-width: 1180px; margin: 0 auto; padding: 24px 20px 40px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; margin-bottom: 18px; }
+h1 { font-size: 26px; font-weight: 600; letter-spacing: -0.01em; margin: 0; }
+header p { margin: 0; color: var(--muted); max-width: 62ch; }
+.top { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; }
+.stage-box { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+#stage { display: block; width: 100%; height: 560px; }
+.hud { position: absolute; left: 14px; top: 12px; display: flex; gap: 14px; flex-wrap: wrap; font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted); pointer-events: none; }
+.hud b { color: var(--ink); font-weight: 500; }
+.status { margin: 10px 0 0; padding: 10px 14px; border-radius: 10px; font-size: 14px; display: none; }
+.status.show { display: block; }
+.status.warn { background: var(--warn-soft); color: var(--warn); }
+.status.info { background: var(--accent-soft); color: var(--ink); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.panel h2 { font-size: 15px; font-weight: 600; margin: 0; }
+.presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: inherit; font-size: 13px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; }
+.chip:hover { border-color: var(--accent); }
+.field { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 10px; }
+.field label { font-size: 14px; }
+.field .val { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted); text-align: right; }
+.field input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); }
+.field .hint { grid-column: 1 / -1; font-size: 12px; color: var(--muted); }
+.num { width: 86px; font: inherit; font-size: 13px; padding: 2px 6px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+.seg button { font: inherit; font-size: 13px; padding: 7px 6px; border: 0; background: transparent; color: var(--ink); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
+.seg button.sin[aria-pressed="true"] { background: var(--warn); }
+.buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.btn { font: inherit; font-size: 14px; font-weight: 500; padding: 9px 10px; border-radius: 9px; border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.btn.wide { grid-column: 1 / -1; }
+.check { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+.check input { accent-color: var(--accent); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.plots { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 18px; }
+figure { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 14px 10px; }
+figure canvas { display: block; width: 100%; height: 300px; }
+figcaption { font-size: 13px; color: var(--muted); margin-top: 6px; }
+figcaption b { color: var(--ink); font-weight: 600; }
+.note { margin-top: 14px; font-size: 13px; color: var(--muted); max-width: 90ch; }
+@media (max-width: 880px) {
+  .top { grid-template-columns: 1fr; }
+  #stage { height: 440px; }
+  .plots { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Bouncing dumbbell, live</h1>
+    <p>Drop a rigid dumbbell on a frictionless floor and watch every bounce. Each bounce adds a point to the Poincaré section; the height trace redraws the paper’s Fig. 2 as it happens.</p>
+  </header>
+
+  <div class="top">
+    <div>
+      <div class="stage-box">
+        <canvas id="stage" aria-label="Animated dumbbell bouncing on the floor"></canvas>
+        <div class="hud">
+          <span>bounce <b id="hBounce">0</b></span>
+          <span>θ <b id="hTheta">0</b></span>
+          <span>ω <b id="hOmega">0</b></span>
+          <span>energy <b id="hEnergy">0</b></span>
+        </div>
+      </div>
+      <div class="status" id="status" role="status"></div>
+    </div>
+
+    <aside class="panel" aria-label="Controls">
+      <div>
+        <h2>Presets</h2>
+        <div class="presets" style="margin-top:8px">
+          <button class="chip" data-preset="regular">Fig. 2 regular</button>
+          <button class="chip" data-preset="chaotic">Fig. 2 chaotic</button>
+          <button class="chip" data-preset="islands">Fig. 3 islands</button>
+          <button class="chip" data-preset="paper">Paper’s sin rule</button>
+          <button class="chip" data-preset="real">Real ball, e = 0.9</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="alpha">Aspect ratio α = L/D</label><span class="val" id="alphaVal"></span>
+        <input type="range" id="alpha" min="2" max="12" step="0.5">
+      </div>
+      <div class="field">
+        <label for="energy">Drop height = energy E</label><span class="val" id="energyVal"></span>
+        <input type="range" id="energy" min="0.3" max="20" step="0.005">
+        <span class="hint" id="energyHint"></span>
+      </div>
+      <div class="field">
+        <label for="theta">Start angle θ₀ (rad)</label><input class="num" id="thetaNum" type="number" min="0.001" max="1.570" step="0.001" aria-label="Start angle in radians">
+        <input type="range" id="theta" min="0.001" max="1.570" step="0.001">
+        <span class="hint" id="thetaHint"></span>
+      </div>
+      <div class="field">
+        <label for="rest">Restitution e</label><span class="val" id="restVal"></span>
+        <input type="range" id="rest" min="0.5" max="1" step="0.01">
+      </div>
+      <div>
+        <div style="font-size:14px;margin-bottom:6px">Collision rule</div>
+        <div class="seg" role="group" aria-label="Collision rule">
+          <button id="ruleCos" aria-pressed="true">cos θ (corrected)</button>
+          <button id="ruleSin" class="sin" aria-pressed="false">sin θ (paper)</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="speed">Playback speed</label><span class="val" id="speedVal"></span>
+        <input type="range" id="speed" min="0.1" max="5" step="0.1">
+      </div>
+      <label class="check"><input type="checkbox" id="keep"> Keep earlier drops on the plots</label>
+      <div class="buttons">
+        <button class="btn primary" id="play">Pause</button>
+        <button class="btn" id="restart">Drop again</button>
+        <button class="btn wide" id="skip">Skip ahead 500 bounces</button>
+        <button class="btn wide" id="map">Map the whole section (40 drops)</button>
+      </div>
+    </aside>
+  </div>
+
+  <div class="plots">
+    <figure>
+      <canvas id="poincare" aria-label="Poincaré section of angle versus angular velocity at each bounce"></canvas>
+      <figcaption><b>Poincaré section.</b> Angle and spin just after each bounce. Dashed curve is the energy limit; a closed ring means a regular orbit, scattered dots mean chaos.</figcaption>
+    </figure>
+    <figure>
+      <canvas id="trace" aria-label="Center-of-mass height versus angle during flight"></canvas>
+      <figcaption><b>Height vs angle.</b> The center’s path through the flights, like the paper’s Fig. 2. A narrow column is the flat regular orbit.</figcaption>
+    </figure>
+  </div>
+  <p class="note">Units: lengths in ball diameters D, time in √(D/g), mass in m. As in the paper, the ends are treated as points at the ball centers, so the floor is drawn half a ball below them. Physics matches dumbbell_sim.py: exact parabolic flights, a contact search that provably cannot skip a hit, and an impulse at the lower end.</p>
+</div>
+
+<script>
+(() => {
+  // ---------- parameters ----------
+  const P = { alpha: 9, E: 12.375, th0: 0.06, e: 1, rule: "cos", speed: 1 };
+  const PRESETS = {
+    regular: { alpha: 9, E: 12.375, th0: 0.06, e: 1, rule: "cos" },
+    chaotic: { alpha: 9, E: 12.375, th0: 0.075, e: 1, rule: "cos" },
+    islands: { alpha: 5, E: 4.05, th0: 0.5, e: 1, rule: "cos" },
+    paper:   { alpha: 5, E: 4.05, th0: 0.1, e: 1, rule: "sin" },
+    real:    { alpha: 9, E: 12.375, th0: 0.06, e: 0.9, rule: "cos" },
+  };
+  let I = P.alpha * P.alpha / 4;
+
+  // ---------- physics (ported from dumbbell_sim.py) ----------
+  const lowerSign = th => (Math.sin(th) > 0 ? -1 : 1);
+
+  function collide(v, w, th) {
+    const s = lowerSign(th);
+    const rx = s * 0.5 * P.alpha * Math.cos(th);
+    if (P.rule === "sin") {
+      const lev = 0.5 * P.alpha * Math.sin(th);
+      const J = -(1 + P.e) * (v + w * lev) / (1 + lev * lev / I);
+      const v2 = v + J, w2 = w + lev * J / I;
+      const vcAfter = v2 + w2 * rx;
+      return { v: v2, w: w2, unphysical: vcAfter <= 0, vcAfter };
+    }
+    const vc = v + w * rx;
+    if (vc >= 0) return { v, w, unphysical: false, vcAfter: vc };
+    const J = -(1 + P.e) * vc / (1 + rx * rx / I);
+    return { v: v + J, w: w + rx * J / I, unphysical: false, vcAfter: -P.e * vc };
+  }
+
+  const lowest = (t, s) => s.y + s.v * t - 0.5 * t * t - 0.5 * P.alpha * Math.abs(Math.sin(s.th + s.w * t));
+
+  function nextContact(s) {
+    const K = Math.max(-1 + 0.5 * P.alpha * s.w * s.w, 0);
+    const tMax = s.v + Math.sqrt(Math.max(s.v * s.v + 2 * s.y, 0)) + 1e-9;
+    let t0 = 0;
+    if (lowest(0, s) <= 1e-12) {
+      const sg = lowerSign(s.th);
+      const hdot = s.v + s.w * sg * 0.5 * P.alpha * Math.cos(s.th);
+      if (hdot <= 0) return null;
+      let tc = Infinity;
+      if (s.w !== 0) {
+        const k = Math.floor(s.th / Math.PI) + (s.w > 0 ? 1 : 0);
+        tc = (k * Math.PI - s.th) / s.w;
+        if (tc <= 0) tc += Math.PI / Math.abs(s.w);
+      }
+      t0 = Math.min(hdot, 0.5 * tc);
+    }
+    const stack = [[t0, tMax, lowest(t0, s), lowest(tMax, s)]];
+    while (stack.length) {
+      const [a, b, ha, hb] = stack.pop();
+      if (ha <= 0) return a;
+      if (hb > 0 && Math.min(ha, hb) - K * (b - a) * (b - a) / 8 > 0) continue;
+      if (b - a < 1e-7) {
+        if (hb <= 0) {
+          let lo = a, hi = b;
+          for (let i = 0; i < 60; i++) { const m = 0.5 * (lo + hi); if (lowest(m, s) > 0) lo = m; else hi = m; }
+          return 0.5 * (lo + hi);
+        }
+        continue;
+      }
+      const m = 0.5 * (a + b), hm = lowest(m, s);
+      stack.push([m, b, hm, hb]);
+      stack.push([a, m, ha, hm]);
+    }
+    return null;
+  }
+
+  const energyOf = s => 0.5 * s.v * s.v + 0.5 * I * s.w * s.w + s.y;
+
+  // ---------- simulation state ----------
+  let flight, T, bounces, halted, playing, lastHit, orbit = 0;
+  let poinPts = [], tracePts = [], trail = [];
+  const PALETTE_LIGHT = ["#2B59C3", "#0F8A7E", "#7A3FB8", "#B4440E", "#A1266B", "#4E6A12"];
+  const PALETTE_DARK = ["#84A6FF", "#4FD1C0", "#C49BFF", "#F59A5B", "#F07FB8", "#B5D46A"];
+  const isDark = () => getComputedStyle(document.documentElement).getPropertyValue("color-scheme").trim() === "dark";
+  const orbitColor = () => (isDark() ? PALETTE_DARK : PALETTE_LIGHT)[orbit % 6];
+
+  function minE() { return 0.5 * P.alpha * Math.abs(Math.sin(P.th0)) + 0.05; }
+
+  function start(keep) {
+    I = P.alpha * P.alpha / 4;
+    if (P.E < minE()) P.E = Math.ceil(minE() * 100) / 100;
+    if (!keep) { poinPts = []; tracePts = []; orbit = 0; } else { orbit++; }
+    trail = [];
+    bounces = 0; halted = false; lastHit = null; T = 0;
+    const s = { y: P.E, v: 0, th: P.th0, w: 0 };
+    flight = { ...s, t0: 0, tc: nextContact(s) };
+    setStatus("");
+    syncUI();
+    redrawPlots();
+  }
+
+  function stateAt(time) {
+    const dt = time - flight.t0;
+    return { y: flight.y + flight.v * dt - 0.5 * dt * dt, v: flight.v - dt, th: flight.th + flight.w * dt, w: flight.w };
+  }
+
+  function wrap0(th) { return ((th % Math.PI) + Math.PI) % Math.PI; }
+  function wrapC(th) { return wrap0(th + Math.PI / 2) - Math.PI / 2; }
+
+  // returns false if the run halted
+  function doBounce() {
+    const tHit = flight.t0 + flight.tc;
+    const s = stateAt(tHit);
+    const res = collide(s.v, s.w, s.th);
+    bounces++;
+    const sg = lowerSign(s.th);
+    lastHit = { x: sg * 0.5 * P.alpha * Math.cos(s.th), at: performance.now() };
+    const col = orbitColor();
+    poinPts.push([wrap0(s.th), res.w, col]);
+    drawPoinPoint(wrap0(s.th), res.w, col);
+    if (res.unphysical) {
+      halted = true;
+      flight = { y: s.y, v: s.v, th: s.th, w: s.w, t0: tHit, tc: Infinity };
+      T = tHit;
+      setStatus(`Bounce ${bounces}: the paper’s sin θ rule left the contact end still moving down into the floor (contact speed ${res.vcAfter.toFixed(3)}). A real floor can’t do that, so the run stops here. Switch to cos θ to keep going.`, "warn");
+      return false;
+    }
+    const ns = { y: s.y, v: res.v, th: s.th, w: res.w };
+    const tc = nextContact(ns);
+    if (tc === null || energyOf(ns) < 0.02 || tc < 1e-6) {
+      halted = true;
+      flight = { ...ns, t0: tHit, tc: Infinity, v: 0, w: 0 };
+      T = tHit;
+      setStatus(`The dumbbell came to rest after ${bounces} bounces. Restitution below 1 drains energy at every hit.`, "info");
+      return false;
+    }
+    flight = { ...ns, t0: tHit, tc };
+    return true;
+  }
+
+  function skipAhead(n) {
+    if (halted) return;
+    for (let i = 0; i < n; i++) {
+      const f = flight;
+      for (let k = 1; k <= 24; k++) {
+        const s = stateAt(f.t0 + f.tc * k / 24);
+        addTrace(wrapC(s.th), s.y);
+      }
+      if (!doBounce()) break;
+    }
+    if (!halted) T = flight.t0;
+    trail = [];
+  }
+
+  function addTrace(x, y) {
+    if (tracePts.length < 250000) tracePts.push([x, y, orbitColor()]);
+    drawTracePoint(x, y, orbitColor());
+  }
+
+  // ---------- drawing helpers ----------
+  const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  function fit(canvas) {
+    const dpr = window.devicePixelRatio || 1;
+    const r = canvas.getBoundingClientRect();
+    canvas.width = Math.round(r.width * dpr);
+    canvas.height = Math.round(r.height * dpr);
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { ctx, w: r.width, h: r.height };
+  }
+
+  const stageEl = document.getElementById("stage");
+  const poinEl = document.getElementById("poincare");
+  const traceEl = document.getElementById("trace");
+  let stage, poin, trace;
+
+  function drawStage() {
+    const { ctx, w, h } = stage;
+    ctx.clearRect(0, 0, w, h);
+    const halfX = P.alpha / 2 + 1.4;
+    const yTop = P.E + P.alpha / 2 + 0.8, yBot = -1.6;
+    const scale = Math.min(w / (2 * halfX), (h - 30) / (yTop - yBot));
+    const cx = w / 2, by = h - 14;
+    const X = x => cx + x * scale;
+    const Y = y => by - (y - yBot) * scale;
+
+    // graph paper in units of D
+    const xMin = Math.floor(-cx / scale), xMax = Math.ceil(cx / scale);
+    for (let gx = xMin; gx <= xMax; gx++) {
+      ctx.strokeStyle = gx % 5 === 0 ? css("--grid-strong") : css("--grid");
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(X(gx), 0); ctx.lineTo(X(gx), Y(-0.5)); ctx.stroke();
+    }
+    for (let gy = 0; gy <= Math.ceil(yTop); gy++) {
+      ctx.strokeStyle = gy % 5 === 0 ? css("--grid-strong") : css("--grid");
+      ctx.beginPath(); ctx.moveTo(0, Y(gy)); ctx.lineTo(w, Y(gy)); ctx.stroke();
+      if (gy % 5 === 0 && gy > 0) {
+        ctx.fillStyle = css("--muted"); ctx.font = "12px Instrument Sans, system-ui, sans-serif";
+        ctx.fillText(`${gy} D`, w - 42, Y(gy) - 4);
+      }
+    }
+    // floor
+    ctx.fillStyle = css("--grid-strong");
+    ctx.fillRect(0, Y(-0.5), w, h - Y(-0.5));
+    ctx.strokeStyle = css("--ink"); ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, Y(-0.5)); ctx.lineTo(w, Y(-0.5)); ctx.stroke();
+
+    const s = halted ? { y: flight.y, th: flight.th } : stateAt(T);
+    const ex = 0.5 * P.alpha * Math.cos(s.th), ey = 0.5 * P.alpha * Math.sin(s.th);
+
+    // center-of-mass trail
+    if (trail.length > 1) {
+      ctx.strokeStyle = css("--accent"); ctx.lineWidth = 1.5;
+      for (let i = 1; i < trail.length; i++) {
+        ctx.globalAlpha = 0.5 * i / trail.length;
+        ctx.beginPath(); ctx.moveTo(X(0), Y(trail[i - 1])); ctx.lineTo(X(0), Y(trail[i])); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // bounce flash at the contact point
+    if (lastHit) {
+      const age = (performance.now() - lastHit.at) / 450;
+      if (age < 1) {
+        ctx.strokeStyle = P.rule === "sin" ? css("--warn") : css("--accent");
+        ctx.globalAlpha = 1 - age; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(X(lastHit.x), Y(-0.5), 6 + 22 * age, Math.PI, 2 * Math.PI); ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    // rod and balls
+    ctx.strokeStyle = css("--ink"); ctx.lineWidth = Math.max(2, scale * 0.14); ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(X(-ex), Y(s.y - ey)); ctx.lineTo(X(ex), Y(s.y + ey)); ctx.stroke();
+    for (const sg of [1, -1]) {
+      ctx.beginPath(); ctx.arc(X(sg * ex), Y(s.y + sg * ey), 0.5 * scale, 0, 2 * Math.PI);
+      ctx.fillStyle = css("--surface"); ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = css("--ink"); ctx.stroke();
+    }
+    ctx.beginPath(); ctx.arc(X(0), Y(s.y), 3.5, 0, 2 * Math.PI); ctx.fillStyle = css("--accent"); ctx.fill();
+  }
+
+  // plot frames
+  const PAD = { l: 44, r: 10, t: 10, b: 30 };
+  function poinMap() {
+    const wMax = Math.sqrt(2 * P.E / I) * 1.12;
+    const { w, h } = poin;
+    return {
+      X: x => PAD.l + (x / Math.PI) * (w - PAD.l - PAD.r),
+      Y: y => PAD.t + (1 - (y + wMax) / (2 * wMax)) * (h - PAD.t - PAD.b),
+      wMax,
+    };
+  }
+  function traceMap() {
+    const yMax = P.E + P.alpha / 2 + 0.5;
+    const { w, h } = trace;
+    return {
+      X: x => PAD.l + ((x + Math.PI / 2) / Math.PI) * (w - PAD.l - PAD.r),
+      Y: y => PAD.t + (1 - y / yMax) * (h - PAD.t - PAD.b),
+      yMax,
+    };
+  }
+  function axes(pl, xTicks, yTicks, xLabel, yLabel, map) {
+    const { ctx, w, h } = pl;
+    ctx.clearRect(0, 0, w, h);
+    ctx.strokeStyle = css("--line"); ctx.lineWidth = 1;
+    ctx.strokeRect(PAD.l, PAD.t, w - PAD.l - PAD.r, h - PAD.t - PAD.b);
+    ctx.fillStyle = css("--muted"); ctx.font = "11px Instrument Sans, system-ui, sans-serif";
+    ctx.textAlign = "center";
+    for (const [v, lab] of xTicks) ctx.fillText(lab, map.X(v), h - PAD.b + 14);
+    ctx.fillText(xLabel, PAD.l + (w - PAD.l - PAD.r) / 2, h - 3);
+    ctx.textAlign = "right";
+    for (const [v, lab] of yTicks) ctx.fillText(lab, PAD.l - 6, map.Y(v) + 4);
+    ctx.save(); ctx.translate(11, PAD.t + (h - PAD.t - PAD.b) / 2); ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = "center"; ctx.fillText(yLabel, 0, 0); ctx.restore();
+    ctx.textAlign = "left";
+  }
+  function redrawPlots() {
+    const pm = poinMap();
+    const wt = Math.round(pm.wMax * 10) / 10 / 1.12;
+    axes(poin, [[0, "0"], [Math.PI / 2, "π/2"], [Math.PI, "π"]],
+      [[-wt, (-wt).toFixed(1)], [0, "0"], [wt, wt.toFixed(1)]], "θ at bounce (mod π)", "ω after", pm);
+    if (P.e === 1) {
+      const { ctx } = poin;
+      ctx.strokeStyle = css("--muted"); ctx.setLineDash([4, 4]); ctx.lineWidth = 1;
+      for (const sgn of [1, -1]) {
+        ctx.beginPath();
+        for (let i = 0; i <= 200; i++) {
+          const th = Math.PI * i / 200;
+          const om = sgn * Math.sqrt(Math.max(2 * (P.E - 0.5 * P.alpha * Math.abs(Math.sin(th))), 0) / I);
+          i ? ctx.lineTo(pm.X(th), pm.Y(om)) : ctx.moveTo(pm.X(th), pm.Y(om));
+        }
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+    }
+    for (const [x, y, c] of poinPts) drawPoinPoint(x, y, c);
+
+    const tm = traceMap();
+    const yStep = tm.yMax > 12 ? 5 : 2;
+    const yt = []; for (let v = 0; v <= tm.yMax; v += yStep) yt.push([v, String(v)]);
+    axes(trace, [[-Math.PI / 2, "−π/2"], [0, "0"], [Math.PI / 2, "π/2"]], yt, "θ (mod π)", "center height", tm);
+    for (const [x, y, c] of tracePts) drawTracePoint(x, y, c);
+  }
+  function drawPoinPoint(x, y, c) {
+    const pm = poinMap();
+    poin.ctx.fillStyle = c; poin.ctx.fillRect(pm.X(x) - 1, pm.Y(y) - 1, 2, 2);
+  }
+  function drawTracePoint(x, y, c) {
+    const tm = traceMap();
+    trace.ctx.fillStyle = c; trace.ctx.globalAlpha = 0.6;
+    trace.ctx.fillRect(tm.X(x) - 0.6, tm.Y(y) - 0.6, 1.2, 1.2);
+    trace.ctx.globalAlpha = 1;
+  }
+
+  function resizeAll() {
+    stage = fit(stageEl); poin = fit(poinEl); trace = fit(traceEl);
+    redrawPlots(); drawStage();
+  }
+
+  // ---------- animation loop ----------
+  let lastFrame = null;
+  const BASE_RATE = 4;
+  function frame(now) {
+    if (lastFrame === null) lastFrame = now;
+    const dtReal = Math.min((now - lastFrame) / 1000, 0.05);
+    lastFrame = now;
+    if (playing && !halted) {
+      T += dtReal * BASE_RATE * P.speed;
+      let guard = 0;
+      while (!halted && T >= flight.t0 + flight.tc && guard++ < 2000) doBounce();
+      if (!halted) {
+        const s = stateAt(T);
+        addTrace(wrapC(s.th), s.y);
+        trail.push(s.y); if (trail.length > 90) trail.shift();
+      }
+    }
+    if (playing || lastHit) {
+      drawStage();
+      const s = halted ? flight : stateAt(T);
+      document.getElementById("hBounce").textContent = bounces;
+      document.getElementById("hTheta").textContent = wrapC(s.th).toFixed(3);
+      document.getElementById("hOmega").textContent = s.w.toFixed(3);
+      document.getElementById("hEnergy").textContent = energyOf(s).toFixed(4);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- UI ----------
+  const $ = id => document.getElementById(id);
+  function setStatus(msg, kind) {
+    const el = $("status");
+    el.textContent = msg; el.className = "status" + (msg ? " show " + kind : "");
+  }
+  function syncUI() {
+    $("alpha").value = P.alpha; $("alphaVal").textContent = P.alpha.toFixed(1);
+    $("energy").value = P.E; $("energyVal").textContent = P.E.toFixed(3);
+    $("energyHint").textContent = `Must exceed ${minE().toFixed(2)} so the dumbbell starts above the floor.`;
+    $("theta").value = P.th0; $("thetaNum").value = P.th0.toFixed(3);
+    $("thetaHint").textContent = `${(P.th0 * 180 / Math.PI).toFixed(2)}° from horizontal`;
+    $("rest").value = P.e; $("restVal").textContent = P.e.toFixed(2);
+    $("speed").value = P.speed; $("speedVal").textContent = P.speed.toFixed(1) + "×";
+    $("ruleCos").setAttribute("aria-pressed", P.rule === "cos");
+    $("ruleSin").setAttribute("aria-pressed", P.rule === "sin");
+    $("play").textContent = playing ? "Pause" : "Play";
+  }
+  const restart = () => start($("keep").checked);
+
+  $("alpha").addEventListener("input", e => { P.alpha = +e.target.value; restart(); });
+  $("energy").addEventListener("input", e => { P.E = +e.target.value; restart(); });
+  $("theta").addEventListener("input", e => { P.th0 = +e.target.value; restart(); });
+  $("thetaNum").addEventListener("change", e => {
+    const v = Math.min(Math.max(+e.target.value || 0.001, 0.001), 1.57);
+    P.th0 = v; restart();
+  });
+  $("rest").addEventListener("input", e => { P.e = +e.target.value; restart(); });
+  $("speed").addEventListener("input", e => { P.speed = +e.target.value; syncUI(); });
+  $("ruleCos").addEventListener("click", () => { P.rule = "cos"; restart(); });
+  $("ruleSin").addEventListener("click", () => { P.rule = "sin"; restart(); });
+  $("play").addEventListener("click", () => { playing = !playing; lastFrame = null; syncUI(); });
+  $("restart").addEventListener("click", () => { restart(); playing = true; syncUI(); });
+  $("skip").addEventListener("click", () => { skipAhead(500); drawStage(); });
+  $("map").addEventListener("click", () => {
+    // Like the paper's Fig. 3: many start angles at the same energy, 400 bounces each
+    const keepTh = P.th0;
+    start(false);
+    for (let k = 0; k < 40; k++) {
+      const th = 0.02 + k * (Math.PI / 2 - 0.02) / 39;
+      if (0.5 * P.alpha * Math.sin(th) + 0.05 > P.E) continue;
+      P.th0 = th; start(true); skipAhead(400);
+    }
+    P.th0 = keepTh; start(true); playing = true; syncUI();
+    setStatus("Mapped 40 start angles at this energy. Each color is a different drop; the current one keeps animating.", "info");
+  });
+  document.querySelectorAll("[data-preset]").forEach(b => b.addEventListener("click", () => {
+    Object.assign(P, PRESETS[b.dataset.preset]);
+    start(false); playing = true; syncUI();
+  }));
+
+  window.addEventListener("resize", resizeAll);
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => setTimeout(resizeAll, 50));
+  new MutationObserver(() => setTimeout(resizeAll, 50)).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  playing = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  stage = fit(stageEl); poin = fit(poinEl); trace = fit(traceEl);
+  start(false);
+  drawStage();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(resizeAll);
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
